@@ -6,7 +6,7 @@
 
 // --- CONFIGURAÇÃO ---
 // ATENÇÃO: Substitua pela URL de implantação da sua API do Apps Script
-const API_URL = "SUA_URL_DE_IMPLANTAÇÃO_DO_APPS_SCRIPT_AQUI";
+const API_URL = "https://api-estagios-backend.onrender.com";
 
 // --- VARIÁVEIS GLOBAIS ---
 let currentResultsData = [];
