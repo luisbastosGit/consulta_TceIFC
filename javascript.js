@@ -1,43 +1,40 @@
 // Arquivo: javascript.js
 const API_URL = "https://api-estagios-backend.onrender.com";
 
-let currentResultsData = [];
-let currentHeaders = [];
-
+// Função genérica para chamar a API
 async function callApi(endpoint, method = 'POST', payload = {}) {
     const authToken = localStorage.getItem('authToken');
-    const headers = {
-        'Content-Type': 'application/json',
-    };
-
+    const headers = { 'Content-Type': 'application/json' };
     if (authToken) {
         headers['Authorization'] = `Bearer ${authToken}`;
     }
 
+    const config = { method, headers };
+    // Para requisições GET, não enviamos um 'body'
+    if (method !== 'GET') {
+        config.body = JSON.stringify(payload);
+    }
+
     try {
-        const response = await fetch(`${API_URL}${endpoint}`, {
-            method,
-            headers,
-            body: JSON.stringify(payload),
-        });
-
+        const response = await fetch(`${API_URL}${endpoint}`, config);
         const result = await response.json();
-
         if (!result.success) {
             if (response.status === 401 || response.status === 403) {
-                handleLogout();
+                handleLogout(); // Desloga o usuário se o token for inválido
             }
             throw new Error(result.message || 'Ocorreu um erro na API.');
         }
-
         return result.data;
     } catch (error) {
         console.error(`Erro na chamada da API para ${endpoint}:`, error);
         showAlert(error.message, 'danger');
+        // Garante que o spinner de loading seja escondido em caso de erro
+        $('#loading-spinner').hide();
         throw error;
     }
 }
 
+// Roda quando a página termina de carregar
 document.addEventListener('DOMContentLoaded', () => {
     const authToken = localStorage.getItem('authToken');
     const user = JSON.parse(localStorage.getItem('user'));
@@ -48,16 +45,49 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('user-name').textContent = user.nome;
 
+    // Carrega os filtros e, em seguida, os dados iniciais
+    loadFiltersAndInitialData();
+
+    // Adiciona os eventos aos botões
     document.getElementById('search-form').addEventListener('submit', (e) => { e.preventDefault(); handleSearch(); });
     document.getElementById('clear-filters').addEventListener('click', () => { document.getElementById('search-form').reset(); handleSearch(); });
     document.getElementById('logout-link').addEventListener('click', (e) => { e.preventDefault(); handleLogout(); });
     document.getElementById('print-button').addEventListener('click', handlePrint);
     $('#save-grades-button').on('click', handleSaveGrades);
-
-    // --- LINHA ADICIONADA AQUI ---
-    // Inicia uma busca automática assim que a página carrega
-    handleSearch();
 });
+
+async function loadFiltersAndInitialData() {
+    try {
+        const filterOptions = await callApi('/filter-options', 'GET');
+        populateFilters(filterOptions);
+    } catch (error) {
+        showAlert('Não foi possível carregar as opções de filtro.', 'warning');
+    } finally {
+        // Faz a busca inicial de dados, independentemente de os filtros terem carregado ou não
+        handleSearch();
+    }
+}
+
+function populateFilters(options) {
+    if (!options) return;
+    const createOptions = (selectId, data) => {
+        const select = document.getElementById(selectId);
+        // Limpa opções antigas antes de adicionar novas
+        select.innerHTML = '<option value="">Todos</option>';
+        if (data) {
+            data.forEach(opt => {
+                const optionEl = document.createElement('option');
+                optionEl.value = opt;
+                optionEl.textContent = opt;
+                select.appendChild(optionEl);
+            });
+        }
+    };
+    createOptions('filter-status', options.status);
+    createOptions('filter-curso', options.cursos);
+    createOptions('filter-orientador', options.orientadores);
+    createOptions('filter-turma', options.turmas);
+}
 
 function handleLogout() {
     localStorage.removeItem('authToken');
@@ -80,13 +110,14 @@ function handleSearch() {
     callApi('/student-data', 'POST', filters)
         .then(displayResults)
         .catch(() => {
+             // O erro já é tratado na função callApi, aqui apenas garantimos que o spinner some
              $('#loading-spinner').hide();
         });
 }
 
 function displayResults(data) {
     currentResultsData = data;
-    $('#loading-spinner').hide();
+    $('#loading-spinner').hide(); // Esconde o spinner ao receber os dados
     const container = $('#results-table-container');
 
     if (!data || data.length === 0) {
@@ -95,7 +126,6 @@ function displayResults(data) {
         return;
     }
 
-    // Pega os cabeçalhos do primeiro objeto, garantindo a ordem
     currentHeaders = [
         'idRegistro', 'statusPreenchimento', 'nome-completo', 'cpf', 'matricula', 
         'data-nascimento', 'telefone-aluno', 'email-aluno', 'curso', 'turma-fase', 
@@ -106,7 +136,7 @@ function displayResults(data) {
         'Nota Relatório', 'Nota da Defesa', 'Média', 'Observações'
     ];
 
-    let table = '<table class="table table-striped table-bordered table-sm"> <thead class="thead-light"><tr>';
+    let table = '<table class="table table-striped table-bordered table-sm" style="font-size: 0.8rem;"> <thead class="thead-light"><tr>';
     currentHeaders.forEach(h => {
         if(h) table += `<th>${h}</th>`;
     });
@@ -120,7 +150,7 @@ function displayResults(data) {
                 table += `<td>${value}</td>`;
             }
         });
-        table += `<td><button class="btn btn-info btn-sm" onclick="openGradesModal(${index})">Lançar Notas</button></td>`;
+        table += `<td><button class="btn btn-info btn-sm" onclick="openGradesModal(${index})">Notas</button></td>`;
         table += '</tr>';
     });
 
@@ -132,7 +162,7 @@ function openGradesModal(rowIndex) {
     const student = currentResultsData[rowIndex];
     const user = JSON.parse(localStorage.getItem('user'));
     
-    if (student['nome-orientador'].trim().toUpperCase() !== user.nome.trim().toUpperCase()) {
+    if (student['nome-orientador'] && student['nome-orientador'].trim().toUpperCase() !== user.nome.trim().toUpperCase()) {
         showAlert('Acesso Negado: Você não é o orientador deste aluno.', 'danger');
         return;
     }
@@ -159,7 +189,7 @@ function handleSaveGrades() {
     callApi('/update-grades', 'POST', dataToSave)
         .then(response => {
             showAlert("Notas salvas com sucesso!", 'success');
-            handleSearch();
+            handleSearch(); // Recarrega os dados para mostrar a nota atualizada
         })
         .finally(() => {
             $('#saving-spinner').hide();
@@ -169,11 +199,26 @@ function handleSaveGrades() {
 }
 
 function handlePrint() {
-    // ... (código de impressão, sem alterações) ...
+    if (currentResultsData.length === 0) {
+        showAlert('Não há dados na tabela para imprimir.', 'warning');
+        return;
+    }
+    const tableContainer = document.getElementById('results-table-container').innerHTML;
+    const printWindow = window.open('', '', 'height=600,width=800');
+    printWindow.document.write('<html><head><title>Relatório de Estágios</title>');
+    printWindow.document.write('<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">');
+    printWindow.document.write('<style>body { padding: 20px; } table { font-size: 10px; } .btn { display: none; } </style>');
+    printWindow.document.write('</head><body><h1>Relatório de Estágios</h1>');
+    printWindow.document.write(tableContainer);
+    printWindow.document.write('</body></html>');
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => { printWindow.print(); }, 500);
 }
 
 function showAlert(message, type) {
+    const alertContainer = $('#alert-container');
     const alertHtml = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">${message}<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button></div>`;
-    $('#alert-container').html(alertHtml);
-    window.scrollTo(0, 0);
+    alertContainer.html(alertHtml);
+    window.scrollTo(0, 0); // Rola a página para o topo para ver o alerta
 }
