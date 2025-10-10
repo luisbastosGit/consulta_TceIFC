@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-br">
   <head>
-    <base target="_top">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base target="_top">
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     <title>Login - Sistema de Estágios</title>
     <style>
@@ -36,65 +37,56 @@
       </div>
     </div>
     <script>
-      // A URL base da nossa API publicada no Render
       const API_URL = "https://api-estagios-backend.onrender.com";
-
       const loginForm = document.getElementById('login-form');
-      const loginButton = document.getElementById('login-button');
-      const spinner = document.getElementById('loading-spinner');
-      const alertContainer = document.getElementById('alert-container');
-
-      // Se o usuário já estiver logado, redireciona para a página principal
+      
+      // Se já houver um token, tenta redirecionar
       if (localStorage.getItem('authToken')) {
         window.location.href = 'index.html';
       }
-      
+
       loginForm.addEventListener('submit', async function(e) {
         e.preventDefault();
+        const loginButton = document.getElementById('login-button');
+        const spinner = document.getElementById('loading-spinner');
+        const alertContainer = document.getElementById('alert-container');
         
         loginButton.disabled = true;
         spinner.style.display = 'inline-block';
         alertContainer.innerHTML = '';
 
-        const credentials = {
-          email: document.getElementById('email').value,
-          password: document.getElementById('password').value
-        };
-
         try {
-          // --- LINHA CORRIGIDA AQUI ---
-          // Agora a requisição é feita para a URL correta: API_URL + "/login"
           const response = await fetch(`${API_URL}/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(credentials)
+            body: JSON.stringify({
+              email: document.getElementById('email').value,
+              password: document.getElementById('password').value
+            }),
           });
+
+          // Verifica se a resposta não é OK (ex: erro 500 no servidor)
+           if (!response.ok) {
+            throw new Error(`Erro no servidor: ${response.status} ${response.statusText}`);
+          }
 
           const result = await response.json();
 
           if (result.success) {
-            // Se o login der certo, salva o token e redireciona
             localStorage.setItem('authToken', result.token);
             localStorage.setItem('user', JSON.stringify(result.user));
             window.location.href = 'index.html';
           } else {
-            // Se a API retornar um erro conhecido (ex: senha errada)
             throw new Error(result.message || 'Credenciais inválidas.');
           }
         } catch (error) {
-          // Se ocorrer qualquer outro erro (ex: de rede)
-          showAlert(error.message, 'danger');
+          // Exibe o erro de forma mais clara
+          alertContainer.innerHTML = `<div class="alert alert-danger" role="alert">${error.message}</div>`;
         } finally {
-          // Garante que o botão seja reativado no final
           loginButton.disabled = false;
           spinner.style.display = 'none';
         }
       });
-
-      function showAlert(message, type) {
-        const alertHtml = `<div class="alert alert-${type}" role="alert">${message}</div>`;
-        alertContainer.innerHTML = alertHtml;
-      }
     </script>
   </body>
 </html>
