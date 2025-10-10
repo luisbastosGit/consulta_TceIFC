@@ -16,19 +16,18 @@ let currentHeaders = [];
 
 /**
  * Função central para fazer chamadas à API.
- * @param {string} endpoint - O endpoint a ser chamado (ex: '/login', '/student-data').
+ * @param {string} endpoint - O endpoint a ser chamado (ex: '/login').
  * @param {string} method - O método HTTP (ex: 'GET', 'POST').
- * @param {object} [body=null] - O corpo da requisição para métodos POST.
+ * @param {object} [payload={}] - Os dados a serem enviados no corpo da requisição.
  * @returns {Promise<any>} - A promessa com os dados da resposta.
  */
-async function callApi(endpoint, method = 'GET', body = null) {
+async function callApi(endpoint, method, payload = {}) {
   const authToken = localStorage.getItem('authToken');
   const headers = {
     'Content-Type': 'application/json',
   };
 
-  // Adiciona o token de autenticação para rotas protegidas
-  if (authToken && endpoint !== '/login') {
+  if (authToken) {
     headers['Authorization'] = `Bearer ${authToken}`;
   }
 
@@ -37,41 +36,38 @@ async function callApi(endpoint, method = 'GET', body = null) {
     headers,
   };
 
-  if (body) {
-    config.body = JSON.stringify(body);
+  if (method === 'POST') {
+    config.body = JSON.stringify(payload);
   }
 
-  try {
-    const response = await fetch(`${API_URL}${endpoint}`, config);
+  const response = await fetch(`${API_URL}${endpoint}`, config);
+  const result = await response.json();
 
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Erro no servidor: ${response.status}`);
+  if (!response.ok || !result.success) {
+    if (response.status === 401 || response.status === 403) {
+      handleLogout();
     }
-
-    // Retorna os dados da resposta em formato JSON
-    const result = await response.json();
-    if (!result.success) {
-        throw new Error(result.message);
-    }
-    return result.data;
-
-  } catch (error) {
-    // Se o token for inválido, desloga o usuário
-    if (error.message.includes("inválido ou expirado")) {
-        handleLogout();
-    }
-    // Propaga o erro para ser tratado pela função que chamou
-    throw error;
+    throw new Error(result.message || 'Ocorreu um erro na API.');
   }
+
+  return result.data;
+}
+
+/**
+ * Lida com erros da API de forma centralizada.
+ * @param {Error} error - O objeto de erro.
+ */
+function handleApiError(error) {
+  console.error('Erro na API:', error);
+  showAlert(error.message, 'danger');
+  $('#loading-spinner').hide();
 }
 
 // =================================================================
-// INICIALIZAÇÃO DA PÁGINA
+// INICIALIZAÇÃO DA PÁGINA E AUTENTICAÇÃO
 // =================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
-  // 1. VERIFICA AUTENTICAÇÃO
   const authToken = localStorage.getItem('authToken');
   const user = JSON.parse(localStorage.getItem('user'));
 
@@ -80,32 +76,30 @@ document.addEventListener('DOMContentLoaded', () => {
     return;
   }
 
-  // 2. INICIALIZA A PÁGINA
   document.getElementById('user-name').textContent = user.nome;
+  
+  initializePage();
 
-  // 3. ADICIONA EVENT LISTENERS
+  // Adiciona Event Listeners
   document.getElementById('search-form').addEventListener('submit', (e) => { e.preventDefault(); handleSearch(); });
   document.getElementById('clear-filters').addEventListener('click', () => { document.getElementById('search-form').reset(); handleSearch(); });
   document.getElementById('logout-link').addEventListener('click', (e) => { e.preventDefault(); handleLogout(); });
   document.getElementById('print-button').addEventListener('click', handlePrint);
   $('#save-grades-button').on('click', handleSaveGrades);
-
-  // 4. CARREGA DADOS INICIAIS (FILTROS E TABELA)
-  loadInitialData();
 });
 
-async function loadInitialData() {
+async function initializePage() {
     $('#loading-spinner').show();
     try {
-        await populateFilters(); // Carrega os filtros primeiro
-        await handleSearch();      // Depois carrega os dados da tabela
+        const filterOptions = await callApi('/filter-options', 'GET');
+        populateFilters(filterOptions);
+        
+        // Dispara uma busca inicial com filtros vazios
+        handleSearch();
     } catch (error) {
-        showAlert(`Erro ao carregar dados iniciais: ${error.message}`, 'danger');
-    } finally {
-        $('#loading-spinner').hide();
+        handleApiError(error);
     }
 }
-
 
 // =================================================================
 // FUNÇÕES DE LÓGICA DA APLICAÇÃO
@@ -117,51 +111,47 @@ function handleLogout() {
   window.location.href = 'login.html';
 }
 
-async function populateFilters() {
-    try {
-        const options = await callApi('/filter-options', 'GET');
-        if (!options) return;
+function populateFilters(options) {
+  if (!options) return;
 
-        const statusSelect = document.getElementById('filter-status');
-        if (options.status) options.status.forEach(opt => statusSelect.innerHTML += `<option value="${opt}">${opt}</option>`);
-        
-        const cursoSelect = document.getElementById('filter-curso');
-        if (options.cursos) options.cursos.forEach(opt => cursoSelect.innerHTML += `<option value="${opt}">${opt}</option>`);
-        
-        const orientadorSelect = document.getElementById('filter-orientador');
-        if (options.orientadores) options.orientadores.forEach(opt => orientadorSelect.innerHTML += `<option value="${opt}">${opt}</option>`);
-
-        const turmaSelect = document.getElementById('filter-turma');
-        if (options.turmas) options.turmas.forEach(opt => turmaSelect.innerHTML += `<option value="${opt}">${opt}</option>`);
-    } catch (error) {
-        showAlert(`Não foi possível carregar as opções de filtro: ${error.message}`, 'warning');
+  const populateSelect = (elementId, items) => {
+    const select = document.getElementById(elementId);
+    if (items) {
+      items.forEach(opt => {
+        select.innerHTML += `<option value="${opt}">${opt}</option>`;
+      });
     }
+  };
+
+  populateSelect('filter-status', options.status);
+  populateSelect('filter-curso', options.cursos);
+  populateSelect('filter-orientador', options.orientadores);
+  populateSelect('filter-turma', options.turmas);
+  populateSelect('filter-ano', options.anos); // Popula o novo filtro de ano
 }
 
-async function handleSearch() {
+function handleSearch() {
   const filters = {
     status: $('#filter-status').val(),
     curso: $('#filter-curso').val(),
     orientador: $('#filter-orientador').val(),
+    turma: $('#filter-turma').val(),
+    ano: $('#filter-ano').val(), // Lê o novo filtro de ano
     nome: $('#filter-nome').val(),
-    turma: $('#filter-turma').val()
+    cpf: $('#filter-cpf').val() // Lê o novo filtro de CPF
   };
   $('#loading-spinner').show();
   $('#results-table-container').empty();
   $('#no-results-message').hide();
 
-  try {
-    const data = await callApi('/student-data', 'POST', filters);
-    displayResults(data);
-  } catch(error) {
-    showAlert(`Erro ao buscar dados: ${error.message}`, 'danger');
-  } finally {
-    $('#loading-spinner').hide();
-  }
+  callApi('/student-data', 'POST', filters)
+    .then(displayResults)
+    .catch(handleApiError);
 }
 
 function displayResults(data) {
   currentResultsData = data;
+  $('#loading-spinner').hide();
   const container = $('#results-table-container');
 
   if (!data || data.length === 0) {
@@ -170,10 +160,10 @@ function displayResults(data) {
     return;
   }
 
-  // Define as colunas que queremos mostrar e a ordem delas
- currentHeaders = ['idRegistro', 'statusPreenchimento', 'nome-completo', 'cpf', 'matricula', 'data-nascimento', 'email-aluno', 'telefone-aluno', 'curso', 'turma-fase', 'nome-orientador', 'nome-concedente', 'responsavel-concedente', 'telefone-concedente', 'email-concedente', 'cidade-empresa', 'uf-empresa', 'nome-supervisor', 'cargo-supervisor', 'email-supervisor','data-inicio-estagio', 'data-termino-estagio', 'area-estagio', 'atividades-previstas', 'Nota Supervisor', 'Nota Relatório', 'Nota da Defesa', 'Média', 'Observações'];
-  let table = '<div class="table-responsive"><table class="table table-striped table-bordered table-sm">';
-  table += '<thead class="thead-light"><tr>';
+  // Define a lista de colunas a serem exibidas na tabela
+  currentHeaders = ['idRegistro', 'statusPreenchimento', 'nome-completo', 'cpf', 'matricula', 'data-nascimento', 'email-aluno', 'telefone-aluno', 'curso', 'turma-fase', 'nome-orientador', 'nome-concedente', 'responsavel-concedente', 'telefone-concedente', 'email-concedente', 'cidade-empresa', 'uf-empresa', 'nome-supervisor', 'cargo-supervisor', 'email-supervisor','data-inicio-estagio', 'data-termino-estagio', 'area-estagio', 'atividades-previstas', 'Nota Supervisor', 'Nota Relatório', 'Nota da Defesa', 'Média', 'Observações'];
+
+  let table = '<div class="table-responsive"><table class="table table-striped table-bordered table-sm"> <thead class="thead-light"><tr>';
   currentHeaders.forEach(h => table += `<th>${h}</th>`);
   table += '<th>Ações</th></tr></thead><tbody>';
 
@@ -189,18 +179,12 @@ function displayResults(data) {
 
   table += '</tbody></table></div>';
   container.html(table);
+  $('#no-results-message').hide();
 }
 
 function openGradesModal(rowIndex) {
   const student = currentResultsData[rowIndex];
   
-  const hasGrades = student['Nota Supervisor'] || student['Nota Relatório'] || student['Nota da Defesa'];
-  if (hasGrades) {
-    if (!confirm("Atenção! Este aluno já possui notas cadastradas. Deseja visualizá-las e, se necessário, substituí-las?")) {
-      return;
-    }
-  }
-
   $('#modal-title').text('Lançar Notas - ' + student['nome-completo']);
   $('#modal-idRegistro').val(student.idRegistro);
   $('#modal-nota-supervisor').val(student['Nota Supervisor']);
@@ -210,7 +194,7 @@ function openGradesModal(rowIndex) {
   $('#grades-modal').modal('show');
 }
 
-async function handleSaveGrades() {
+function handleSaveGrades() {
   const dataToSave = {
     idRegistro: $('#modal-idRegistro').val(),
     notaSupervisor: $('#modal-nota-supervisor').val(),
@@ -222,17 +206,17 @@ async function handleSaveGrades() {
   $('#saving-spinner').show();
   $('#save-grades-button').prop('disabled', true);
 
-  try {
-    const response = await callApi('/update-grades', 'POST', dataToSave);
-    showAlert(response.message, 'success');
-    handleSearch(); // Recarrega os dados para mostrar a nota atualizada
-  } catch(error) {
-    showAlert(`Erro ao salvar notas: ${error.message}`, 'danger');
-  } finally {
-    $('#saving-spinner').hide();
-    $('#save-grades-button').prop('disabled', false);
-    $('#grades-modal').modal('hide');
-  }
+  callApi('/update-grades', 'POST', dataToSave)
+    .then(response => {
+      showAlert(response.message || "Notas salvas com sucesso!", 'success');
+      handleSearch();
+    })
+    .catch(handleApiError)
+    .finally(() => {
+      $('#saving-spinner').hide();
+      $('#save-grades-button').prop('disabled', false);
+      $('#grades-modal').modal('hide');
+    });
 }
 
 // =================================================================
@@ -240,10 +224,8 @@ async function handleSaveGrades() {
 // =================================================================
 
 function showAlert(message, type) {
-  const alertHtml = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">${message}<button type="button" class="close" data-dismiss="alert">&times;</button></div>`;
-  $('#alert-container').html(alertHtml);
-  // Faz o alerta desaparecer após 5 segundos
-  setTimeout(() => { $('.alert').alert('close'); }, 5000);
+  const alertHtml = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">${message}<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button></div>`;
+  $('#alert-container').html(alertHtml).find('.alert').delay(4000).fadeOut();
 }
 
 function handlePrint() {
@@ -255,7 +237,7 @@ function handlePrint() {
   const printWindow = window.open('', '', 'height=600,width=800');
   printWindow.document.write('<html><head><title>Relatório de Estágios</title>');
   printWindow.document.write('<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">');
-  printWindow.document.write('<style>body { padding: 20px; } table { font-size: 10px; } @media print { .btn { display: none; } }</style>');
+  printWindow.document.write('<style>body { padding: 20px; } table { font-size: 10px; } @media print { .btn { display: none; } } </style>');
   printWindow.document.write('</head><body><h1>Relatório de Estágios</h1>');
   printWindow.document.write(tableContainer.innerHTML);
   printWindow.document.write('</body></html>');
