@@ -171,8 +171,7 @@ function displayResults(data) {
   }
 
   // Define as colunas que queremos mostrar e a ordem delas
-  currentHeaders = ['idRegistro', 'statusPreenchimento', 'nome-completo', 'cpf', 'matricula', 'curso', 'turma-fase', 'nome-orientador', 'nome-concedente', 'Nota Supervisor', 'Nota Relatório', 'Nota da Defesa', 'Média', 'Observações'];
-
+ currentHeaders = ['idRegistro', 'statusPreenchimento', 'nome-completo', 'cpf', 'matricula', 'data-nascimento', 'email-aluno', 'telefone-aluno', 'curso', 'turma-fase', 'nome-orientador', 'nome-concedente', 'responsavel-concedente', 'telefone-concedente', 'email-concedente', 'cidade-empresa', 'uf-empresa', 'nome-supervisor', 'cargo-supervisor', 'email-supervisor','data-inicio-estagio', 'data-termino-estagio', 'area-estagio', 'atividades-previstas', 'Nota Supervisor', 'Nota Relatório', 'Nota da Defesa', 'Média', 'Observações'];
   let table = '<div class="table-responsive"><table class="table table-striped table-bordered table-sm">';
   table += '<thead class="thead-light"><tr>';
   currentHeaders.forEach(h => table += `<th>${h}</th>`);
