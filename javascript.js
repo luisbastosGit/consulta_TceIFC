@@ -299,3 +299,4 @@ function showAlert(message, type) {
   $('#alert-container').html(alertHtml).find('.alert').delay(5000).fadeOut();
 }
 
+  

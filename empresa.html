@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadastro da Empresa - Sistema de Estágios IFC</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .form-container {
+            max-width: 800px;
+            margin: 3rem auto;
+            padding: 2rem;
+            background-color: #fff;
+            border-radius: 0.5rem;
+            box-shadow: 0 0.5rem 1rem rgba(0,0,0,.15);
+        }
+        #loading-spinner, #success-message, #error-message {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-dark">
+        <a class="navbar-brand" href="#">Sistema de Gerenciamento de Estágios - IFC Concórdia</a>
+    </nav>
+
+    <div class="container">
+        <div class="form-container">
+            <h3 class="text-center mb-4">Complemento de Cadastro do Estágio</h3>
+            <p class="text-center text-muted">Por favor, preencha os dados abaixo referentes à empresa e ao supervisor do estágio.</p>
+            <hr>
+
+            <!-- Mensagens de Feedback -->
+            <div id="success-message" class="alert alert-success" role="alert">
+                Dados enviados com sucesso! Agradecemos a sua colaboração. Já pode fechar esta página.
+            </div>
+            <div id="error-message" class="alert alert-danger" role="alert">
+                Ocorreu um erro ao enviar os dados. Por favor, tente novamente ou entre em contato com a coordenação.
+            </div>
+
+            <form id="company-form">
+                <!-- Campo oculto para guardar o ID do registo -->
+                <input type="hidden" id="idRegistro" name="idRegistro">
+
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label for="responsavel-concedente">Nome do Responsável Legal da Empresa</label>
+                        <input type="text" class="form-control" id="responsavel-concedente" name="responsavel-concedente" required>
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label for="telefone-concedente">Telefone da Empresa</label>
+                        <input type="text" class="form-control" id="telefone-concedente" name="telefone-concedente" required>
+                    </div>
+                </div>
+                 <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label for="cidade-empresa">Cidade</label>
+                        <input type="text" class="form-control" id="cidade-empresa" name="cidade-empresa" required>
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label for="uf-empresa">Estado (UF)</label>
+                        <input type="text" class="form-control" id="uf-empresa" name="uf-empresa" required maxlength="2">
+                    </div>
+                </div>
+                <hr>
+                <h5 class="mt-4 mb-3">Dados do Supervisor</h5>
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label for="nome-supervisor">Nome do Supervisor do Estágio</label>
+                        <input type="text" class="form-control" id="nome-supervisor" name="nome-supervisor" required>
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label for="cargo-supervisor">Cargo do Supervisor</label>
+                        <input type="text" class="form-control" id="cargo-supervisor" name="cargo-supervisor" required>
+                    </div>
+                </div>
+                 <div class="form-group">
+                    <label for="email-supervisor">E-mail do Supervisor</label>
+                    <input type="email" class="form-control" id="email-supervisor" name="email-supervisor" required>
+                </div>
+                 <hr>
+                 <h5 class="mt-4 mb-3">Detalhes do Estágio</h5>
+                <div class="form-row">
+                     <div class="form-group col-md-6">
+                        <label for="data-inicio-estagio">Data de Início do Estágio</label>
+                        <input type="date" class="form-control" id="data-inicio-estagio" name="data-inicio-estagio" required>
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label for="data-termino-estagio">Data de Término do Estágio</label>
+                        <input type="date" class="form-control" id="data-termino-estagio" name="data-termino-estagio" required>
+                    </div>
+                </div>
+                 <div class="form-group">
+                    <label for="area-estagio">Área do Estágio</label>
+                    <input type="text" class="form-control" id="area-estagio" name="area-estagio" required>
+                </div>
+                <div class="form-group">
+                    <label for="atividades-previstas">Atividades Previstas (descreva detalhadamente)</label>
+                    <textarea class="form-control" id="atividades-previstas" name="atividades-previstas" rows="4" required></textarea>
+                </div>
+
+                <button type="submit" id="submit-button" class="btn btn-primary btn-block mt-4">
+                    <span id="loading-spinner" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    Enviar Dados
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // URL da sua API publicada no Render
+        const API_URL = "https://api-estagios-backend.onrender.com";
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // 1. Pega o ID da URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const idRegistro = urlParams.get('id');
+
+            const idField = document.getElementById('idRegistro');
+            const form = document.getElementById('company-form');
+            const errorMsg = document.getElementById('error-message');
+
+            if (!idRegistro) {
+                form.style.display = 'none';
+                errorMsg.textContent = 'ERRO: O link utilizado é inválido ou não contém um ID de registo. Por favor, utilize o link recebido por e-mail.';
+                errorMsg.style.display = 'block';
+                return;
+            }
+            
+            // 2. Coloca o ID no campo oculto do formulário
+            idField.value = idRegistro;
+
+            // 3. Adiciona o listener para o envio do formulário
+            form.addEventListener('submit', handleFormSubmit);
+        });
+
+        async function handleFormSubmit(event) {
+            event.preventDefault();
+
+            const submitButton = document.getElementById('submit-button');
+            const spinner = document.getElementById('loading-spinner');
+            const successMsg = document.getElementById('success-message');
+            const errorMsg = document.getElementById('error-message');
+            const form = document.getElementById('company-form');
+
+            submitButton.disabled = true;
+            spinner.style.display = 'inline-block';
+            successMsg.style.display = 'none';
+            errorMsg.style.display = 'none';
+
+            // 4. Monta o objeto com todos os dados do formulário
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+
+            try {
+                // 5. Envia os dados para a API
+                const response = await fetch(`${API_URL}/complete-registration`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data),
+                });
+
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.message || 'Erro desconhecido');
+                }
+
+                // 6. Mostra mensagem de sucesso e esconde o formulário
+                successMsg.style.display = 'block';
+                form.style.display = 'none';
+
+            } catch (error) {
+                console.error('Erro ao submeter:', error);
+                errorMsg.textContent = `Ocorreu um erro: ${error.message}. Por favor, tente novamente.`;
+                errorMsg.style.display = 'block';
+                submitButton.disabled = false;
+                spinner.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
