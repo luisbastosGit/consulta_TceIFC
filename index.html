@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <!-- LINHA CORRIGIDA AQUI -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Estágios</title>
@@ -42,24 +41,42 @@
         .table-results {
             font-size: 0.85rem;
         }
-        /* Estilos para a ordenação da tabela */
+        
+        /* --- ESTILOS CORRIGIDOS E ADICIONADOS --- */
+
+        /* 1. Ícones de Ordenação (usando SVG para máxima compatibilidade) */
         .sortable {
             cursor: pointer;
             position: relative;
+            padding-right: 20px !important; /* Espaço para o ícone */
         }
         .sortable::after {
-            content: '\\2195'; /* Seta dupla para cima/baixo */
+            content: '';
             position: absolute;
-            right: 8px;
-            color: #ccc;
+            right: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 1em;
+            height: 1em;
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: contain;
+            /* Ícone padrão (setas fracas) */
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23ccc'%3e%3cpath fill-rule='evenodd' d='M8 15a.5.5 0 0 0 .5-.5V2.707l3.146 3.147a.5.5 0 0 0 .708-.708l-4-4a.5.5 0 0 0-.708 0l-4 4a.5.5 0 1 0 .708.708L7.5 2.707V14.5a.5.5 0 0 0 .5.5z'/%3e%3c/svg%3e");
         }
         .sortable.asc::after {
-            content: '\\25B2'; /* Triângulo para cima */
-            color: #007bff;
+             /* Ícone para ordenação ascendente (seta para cima) */
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23007bff'%3e%3cpath d='m7.247 4.86-4.796 5.481c-.566.647-.106 1.659.753 1.659h9.592a1 1 0 0 0 .753-1.659l-4.796-5.48a1 1 0 0 0-1.506 0z'/%3e%3c/svg%3e");
         }
         .sortable.desc::after {
-            content: '\\25BC'; /* Triângulo para baixo */
-            color: #007bff;
+            /* Ícone para ordenação descendente (seta para baixo) */
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23007bff'%3e%3cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3e%3c/svg%3e");
+        }
+
+        /* 2. Estilo para a coluna larga */
+        .table-results .wide-column {
+            min-width: 400px;
+            white-space: normal; /* Permite que o texto quebre a linha */
         }
     </style>
 </head>
@@ -107,7 +124,7 @@
                         <label for="filter-turma">Turma/Fase</label>
                         <select id="filter-turma" class="form-control form-control-sm"><option value="">Todos</option></select>
                     </div>
-                    <div class="form-group col-md-2">
+                     <div class="form-group col-md-2">
                         <label for="filter-ano">Ano Matrícula</label>
                         <input type="text" id="filter-ano" class="form-control form-control-sm" placeholder="Ex: 2025">
                     </div>

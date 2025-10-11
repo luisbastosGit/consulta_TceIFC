@@ -163,7 +163,6 @@ function displayResults() {
                <thead class="thead-light"><tr>`;
   
   currentHeaders.forEach(h => {
-    // Adiciona classes para ordenação
     const isSortable = sortColumn === h;
     const sortClass = isSortable ? sortDirection : '';
     table += `<th class="sortable ${sortClass}" data-column="${h}">${h}</th>`;
@@ -175,7 +174,9 @@ function displayResults() {
     table += `<tr>`;
     currentHeaders.forEach(h => {
       const value = row.hasOwnProperty(h) && row[h] != null ? row[h] : '';
-      table += `<td>${value}</td>`;
+      // Adiciona a classe 'wide-column' se o cabeçalho for 'atividades-previstas'
+      const tdClass = h === 'atividades-previstas' ? 'class="wide-column"' : '';
+      table += `<td ${tdClass}>${value}</td>`;
     });
     table += `<td><button class="btn btn-info btn-sm" onclick="openGradesModal(${index})">Notas</button></td>`;
     table += '</tr>';
@@ -200,7 +201,6 @@ function handleSort(column) {
         let valA = a[sortColumn] || '';
         let valB = b[sortColumn] || '';
 
-        // Converte para minúsculas se for string para ordenação correta
         if (typeof valA === 'string') valA = valA.toLowerCase();
         if (typeof valB === 'string') valB = valB.toLowerCase();
 
@@ -213,7 +213,7 @@ function handleSort(column) {
         return 0;
     });
 
-    displayResults(); // Redesenha a tabela com os dados ordenados
+    displayResults();
 }
 
 function handleExport() {
@@ -222,19 +222,15 @@ function handleExport() {
         return;
     }
 
-    // Prepara os dados: remove o idRegistro se não for necessário na exportação
     const dataToExport = currentDisplayData.map(row => {
         const newRow = { ...row };
-        // delete newRow.idRegistro; // Descomente esta linha se não quiser o ID na planilha
         return newRow;
     });
 
-    // Cria a planilha a partir dos dados JSON
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Resultados");
 
-    // Gera e descarrega o ficheiro .xlsx
     const date = new Date().toISOString().slice(0, 10);
     XLSX.writeFile(workbook, `Relatorio_Estagios_${date}.xlsx`);
 }
@@ -242,7 +238,6 @@ function handleExport() {
 // --- FUNÇÕES DE MODAL E ALERTAS ---
 
 function openGradesModal(displayIndex) {
-  // Encontra o objeto original pelo idRegistro para garantir que estamos a editar o correto
   const student = allStudentsData.find(s => s.idRegistro === currentDisplayData[displayIndex].idRegistro);
   
   if (!student) {
