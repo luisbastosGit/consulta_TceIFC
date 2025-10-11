@@ -36,11 +36,29 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            z-index: 1050; /* Garante que fique acima de outros elementos */
+            z-index: 1050;
         }
-        /* Ajusta o tamanho da fonte da tabela */
         .table-results {
             font-size: 0.85rem;
+        }
+        /* Estilos para a ordenação da tabela */
+        .sortable {
+            cursor: pointer;
+            position: relative;
+        }
+        .sortable::after {
+            content: '\\2195'; /* Seta dupla para cima/baixo */
+            position: absolute;
+            right: 8px;
+            color: #ccc;
+        }
+        .sortable.asc::after {
+            content: '\\25B2'; /* Triângulo para cima */
+            color: #007bff;
+        }
+        .sortable.desc::after {
+            content: '\\25BC'; /* Triângulo para baixo */
+            color: #007bff;
         }
     </style>
 </head>
@@ -88,7 +106,6 @@
                         <label for="filter-turma">Turma/Fase</label>
                         <select id="filter-turma" class="form-control form-control-sm"><option value="">Todos</option></select>
                     </div>
-                    <!-- CAMPO ANO ALTERADO PARA TEXTO -->
                     <div class="form-group col-md-2">
                         <label for="filter-ano">Ano Matrícula</label>
                         <input type="text" id="filter-ano" class="form-control form-control-sm" placeholder="Ex: 2025">
@@ -103,11 +120,13 @@
                         <label for="filter-cpf">CPF do Aluno</label>
                         <input type="text" id="filter-cpf" class="form-control form-control-sm" placeholder="Digite apenas números...">
                     </div>
+                    <div class="form-group col-md-5 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary btn-sm mr-2">Buscar</button>
+                        <button type="button" id="clear-filters" class="btn btn-secondary btn-sm mr-2">Limpar Filtros</button>
+                        <!-- BOTÃO ALTERADO -->
+                        <button type="button" id="export-button" class="btn btn-success btn-sm">Gerar Planilha</button>
+                    </div>
                 </div>
-
-                <button type="submit" class="btn btn-primary btn-sm">Buscar</button>
-                <button type="button" id="clear-filters" class="btn btn-secondary btn-sm">Limpar Filtros</button>
-                <button type="button" id="print-button" class="btn btn-info btn-sm">Imprimir Tabela</button>
             </form>
         </div>
 
@@ -165,10 +184,11 @@
         </div>
     </div>
 
-
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <!-- BIBLIOTECA PARA GERAR EXCEL -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script src="javascript.js"></script>
 
 </body>
