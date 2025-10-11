@@ -14,13 +14,6 @@ let currentHeaders = [];
 // FUNÇÃO CENTRAL DE COMUNICAÇÃO COM A API
 // =================================================================
 
-/**
- * Função central para fazer chamadas à API.
- * @param {string} endpoint - O endpoint a ser chamado (ex: '/login').
- * @param {string} method - O método HTTP (ex: 'GET', 'POST').
- * @param {object} [payload={}] - Os dados a serem enviados no corpo da requisição.
- * @returns {Promise<any>} - A promessa com os dados da resposta.
- */
 async function callApi(endpoint, method, payload = {}) {
   const authToken = localStorage.getItem('authToken');
   const headers = {
@@ -49,18 +42,18 @@ async function callApi(endpoint, method, payload = {}) {
     }
     throw new Error(result.message || 'Ocorreu um erro na API.');
   }
-
-  return result.data;
+  
+  return result;
 }
 
 /**
  * Lida com erros da API de forma centralizada.
- * @param {Error} error - O objeto de erro.
  */
 function handleApiError(error) {
   console.error('Erro na API:', error);
   showAlert(error.message, 'danger');
-  $('#loading-spinner').hide();
+  $('#loading-spinner, #saving-spinner').hide();
+  $('#save-grades-button').prop('disabled', false);
 }
 
 // =================================================================
@@ -80,7 +73,6 @@ document.addEventListener('DOMContentLoaded', () => {
   
   initializePage();
 
-  // Adiciona Event Listeners
   document.getElementById('search-form').addEventListener('submit', (e) => { e.preventDefault(); handleSearch(); });
   document.getElementById('clear-filters').addEventListener('click', () => { document.getElementById('search-form').reset(); handleSearch(); });
   document.getElementById('logout-link').addEventListener('click', (e) => { e.preventDefault(); handleLogout(); });
@@ -91,13 +83,18 @@ document.addEventListener('DOMContentLoaded', () => {
 async function initializePage() {
     $('#loading-spinner').show();
     try {
-        const filterOptions = await callApi('/filter-options', 'GET');
-        populateFilters(filterOptions);
+        const [filterOptionsResponse, studentDataResponse] = await Promise.all([
+            callApi('/filter-options', 'GET'),
+            callApi('/student-data', 'POST', {}) // Busca inicial
+        ]);
         
-        // Dispara uma busca inicial com filtros vazios
-        handleSearch();
+        populateFilters(filterOptionsResponse.data);
+        displayResults(studentDataResponse.data);
+
     } catch (error) {
         handleApiError(error);
+    } finally {
+        $('#loading-spinner').hide();
     }
 }
 
@@ -117,6 +114,7 @@ function populateFilters(options) {
   const populateSelect = (elementId, items) => {
     const select = document.getElementById(elementId);
     if (items) {
+      select.innerHTML = '<option value="">Todos</option>';
       items.forEach(opt => {
         select.innerHTML += `<option value="${opt}">${opt}</option>`;
       });
@@ -127,7 +125,7 @@ function populateFilters(options) {
   populateSelect('filter-curso', options.cursos);
   populateSelect('filter-orientador', options.orientadores);
   populateSelect('filter-turma', options.turmas);
-  populateSelect('filter-ano', options.anos); // Popula o novo filtro de ano
+  populateSelect('filter-ano', options.anos);
 }
 
 function handleSearch() {
@@ -136,22 +134,22 @@ function handleSearch() {
     curso: $('#filter-curso').val(),
     orientador: $('#filter-orientador').val(),
     turma: $('#filter-turma').val(),
-    ano: $('#filter-ano').val(), // Lê o novo filtro de ano
+    ano: $('#filter-ano').val(),
     nome: $('#filter-nome').val(),
-    cpf: $('#filter-cpf').val() // Lê o novo filtro de CPF
+    cpf: $('#filter-cpf').val()
   };
   $('#loading-spinner').show();
   $('#results-table-container').empty();
   $('#no-results-message').hide();
 
   callApi('/student-data', 'POST', filters)
-    .then(displayResults)
-    .catch(handleApiError);
+    .then(response => displayResults(response.data))
+    .catch(handleApiError)
+    .finally(() => $('#loading-spinner').hide());
 }
 
 function displayResults(data) {
   currentResultsData = data;
-  $('#loading-spinner').hide();
   const container = $('#results-table-container');
 
   if (!data || data.length === 0) {
@@ -160,12 +158,11 @@ function displayResults(data) {
     return;
   }
 
-  // Define a lista de colunas a serem exibidas na tabela
   currentHeaders = ['idRegistro', 'statusPreenchimento', 'nome-completo', 'cpf', 'matricula', 'data-nascimento', 'email-aluno', 'telefone-aluno', 'curso', 'turma-fase', 'nome-orientador', 'nome-concedente', 'responsavel-concedente', 'telefone-concedente', 'email-concedente', 'cidade-empresa', 'uf-empresa', 'nome-supervisor', 'cargo-supervisor', 'email-supervisor','data-inicio-estagio', 'data-termino-estagio', 'area-estagio', 'atividades-previstas', 'Nota Supervisor', 'Nota Relatório', 'Nota da Defesa', 'Média', 'Observações'];
 
-  let table = '<div class="table-responsive"><table class="table table-striped table-bordered table-sm"> <thead class="thead-light"><tr>';
+  let table = `<div class="table-responsive"><table class="table table-striped table-bordered table-sm"> <thead class="thead-light"><tr>`;
   currentHeaders.forEach(h => table += `<th>${h}</th>`);
-  table += '<th>Ações</th></tr></thead><tbody>';
+  table += `<th>Ações</th></tr></thead><tbody>`;
 
   data.forEach((row, index) => {
     table += `<tr>`;
@@ -174,10 +171,10 @@ function displayResults(data) {
       table += `<td>${value}</td>`;
     });
     table += `<td><button class="btn btn-info btn-sm" onclick="openGradesModal(${index})">Notas</button></td>`;
-    table += '</tr>';
+    table += `</tr>`;
   });
 
-  table += '</tbody></table></div>';
+  table += `</tbody></table></div>`;
   container.html(table);
   $('#no-results-message').hide();
 }
@@ -209,7 +206,7 @@ function handleSaveGrades() {
   callApi('/update-grades', 'POST', dataToSave)
     .then(response => {
       showAlert(response.message || "Notas salvas com sucesso!", 'success');
-      handleSearch();
+      handleSearch(); 
     })
     .catch(handleApiError)
     .finally(() => {
