@@ -126,7 +126,8 @@
         turma: $('#filter-turma').val(),
         ano: $('#filter-ano').val(),
         nome: $('#filter-nome').val(),
-        cpf: $('#filter-cpf').val()
+        cpf: $('#filter-cpf').val(),
+        empresa: $('#filter-empresa').val()
     };
     $('#loading-spinner').show();
     $('#results-table-container').empty();
