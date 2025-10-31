@@ -119,16 +119,17 @@
     }
 
     function handleSearch() {
-    const filters = {
-        status: $('#filter-status').val(),
-        curso: $('#filter-curso').val(),
-        orientador: $('#filter-orientador').val(),
-        turma: $('#filter-turma').val(),
-        ano: $('#filter-ano').val(),
-        nome: $('#filter-nome').val(),
-        cpf: $('#filter-cpf').val(),
-        empresa: $('#filter-empresa').val()
-    };
+    const filters = {
+        status: $('#filter-status').val(),
+        curso: $('#filter-curso').val(),
+        orientador: $('#filter-orientador').val(),
+        turma: $('#filter-turma').val(),
+        ano: $('#filter-ano').val(),
+        nome: $('#filter-nome').val(),
+        cpf: $('#filter-cpf').val(),
+        // 👇 ESTA É A LINHA IMPORTANTE 👇
+        empresa: $('#filter-empresa').val()
+    };
     $('#loading-spinner').show();
     $('#results-table-container').empty();
     $('#no-results-message').hide();
